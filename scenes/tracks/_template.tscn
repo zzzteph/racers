@@ -1,0 +1,63 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/map_track.gd" id="1_track"]
+[ext_resource type="Script" path="res://scripts/map_block.gd" id="2_block"]
+[ext_resource type="Script" path="res://scripts/map_prop.gd" id="3_prop"]
+
+[sub_resource type="Curve2D" id="Curve2D_loop"]
+_data = {
+"points": PackedVector2Array(-0.0, -33.2, 0.0, 33.2, 1180.0, 420.0, 23.4, -30.6, -23.4, 30.6, 1143.5, 519.5, 43.3, -23.5, -43.3, 23.5, 1039.4, 603.8, 56.6, -12.7, -56.6, 12.7, 883.7, 660.2, 61.2, -0.0, -61.2, 0.0, 700.0, 680.0, 56.6, 12.7, -56.6, -12.7, 516.3, 660.2, 43.3, 23.5, -43.3, -23.5, 360.6, 603.8, 23.4, 30.6, -23.4, -30.6, 256.5, 519.5, 0.0, 33.2, -0.0, -33.2, 220.0, 420.0, -23.4, 30.6, 23.4, -30.6, 256.5, 320.5, -43.3, 23.5, 43.3, -23.5, 360.6, 236.2, -56.6, 12.7, 56.6, -12.7, 516.3, 179.8, -61.2, 0.0, 61.2, -0.0, 700.0, 160.0, -56.6, -12.7, 56.6, 12.7, 883.7, 179.8, -43.3, -23.5, 43.3, 23.5, 1039.4, 236.2, -23.4, -30.6, 23.4, 30.6, 1143.5, 320.5, -0.0, -33.2, 0.0, 33.2, 1180.0, 420.0),
+"point_count": 17
+}
+point_count = 17
+
+[node name="Template" type="Node2D"]
+script = ExtResource("1_track")
+display_name = "Template"
+track_width = 118.0
+laps = 3
+accent = Color(0.45, 0.8, 1, 1)
+
+[node name="Path2D" type="Path2D" parent="."]
+curve = SubResource("Curve2D_loop")
+
+[node name="Warehouse" type="Node2D" parent="."]
+position = Vector2(700, 420)
+script = ExtResource("2_block")
+size = Vector2(220, 120)
+height = 16.0
+color = Color(0.36, 0.33, 0.4, 1)
+
+[node name="Kiosk" type="Node2D" parent="."]
+position = Vector2(1290, 130)
+script = ExtResource("2_block")
+size = Vector2(90, 70)
+height = 10.0
+color = Color(0.5, 0.36, 0.3, 1)
+
+[node name="Cone1" type="Node2D" parent="."]
+position = Vector2(1252, 372)
+script = ExtResource("3_prop")
+
+[node name="Cone2" type="Node2D" parent="."]
+position = Vector2(1256, 420)
+script = ExtResource("3_prop")
+
+[node name="Cone3" type="Node2D" parent="."]
+position = Vector2(1252, 468)
+script = ExtResource("3_prop")
+
+[node name="Tyres1" type="Node2D" parent="."]
+position = Vector2(1276, 396)
+script = ExtResource("3_prop")
+kind = 3
+
+[node name="Tyres2" type="Node2D" parent="."]
+position = Vector2(1276, 444)
+script = ExtResource("3_prop")
+kind = 3
+
+[node name="OilDrum" type="Node2D" parent="."]
+position = Vector2(700, 690)
+script = ExtResource("3_prop")
+kind = 28

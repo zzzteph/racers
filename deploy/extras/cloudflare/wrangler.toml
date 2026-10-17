@@ -1,0 +1,22 @@
+# Rope Racers server directory -- Cloudflare Worker configuration.
+# Deploy:   cd deploy/extras/cloudflare && npx wrangler deploy        (see deploy/README.md, "Optional: a directory of several servers")
+
+name = "rope-racers-directory"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+# The Worker answers /api/* on the game's own domain; everything else goes on to your server (Caddy).
+# The hostname must be PROXIED by Cloudflare (orange cloud) for the route to catch requests.
+routes = [
+  { pattern = "rope.thenakedcat.games/api/*", zone_name = "thenakedcat.games" }
+]
+
+# The server list. Create it once:  npx wrangler kv namespace create SERVERS
+# and paste the id it prints here.
+[[kv_namespaces]]
+binding = "SERVERS"
+id = "PASTE_THE_KV_NAMESPACE_ID_HERE"
+
+# The key your game servers use to check in is a SECRET, not a variable here:
+#   npx wrangler secret put REGISTER_KEY
+# (use the same value as RR_REGISTER_KEY in deploy/.env)

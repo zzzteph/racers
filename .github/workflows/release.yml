@@ -1,0 +1,117 @@
+name: release
+
+# Publishes the downloads for one version (SPEC 72). The repository carries source only -- build/ is
+# ignored -- so this is where players get the game. Two ways to fire it, both ending in the same release:
+#
+#   * Actions > release > "Run workflow"  -- takes the version out of project.godot, makes the tag itself
+#     and publishes. Nothing to type; bump config/version, write the changelog section, press the button.
+#   * git tag v0.71.0 && git push origin v0.71.0  -- for when the tag comes first.
+#
+# Either way the tag must agree with project.godot and CHANGELOG.md must have a section for it, or the job
+# stops before building anything: a release called v0.71.0 that reports v0.70.0 in its own menu is worse
+# than no release at all.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: "Draft it instead of publishing (look it over first)"
+        type: boolean
+        default: false
+      prerelease:
+        description: "Mark it as a pre-release"
+        type: boolean
+        default: false
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version, and check nothing disagrees with it
+        id: v
+        run: |
+          set -eu
+          version=$(sed -n 's/^config\/version="\(.*\)"$/\1/p' project.godot)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Rope Racers v$version"
+
+          # A tag push has to name the same version the game reports.
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$tag" != "$version" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match project.godot version $version"
+              exit 1
+            fi
+          else
+            # Run-the-workflow: the tag is made here, so it must not exist yet. Releasing the same version
+            # twice would leave two different builds wearing one number.
+            if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+              echo "::error::v$version is already tagged. Bump config/version in project.godot and add its CHANGELOG.md section, then run this again."
+              exit 1
+            fi
+          fi
+
+          grep -q "^## $version " CHANGELOG.md || {
+            echo "::error::CHANGELOG.md has no '## $version <date>' section -- a release nobody can read the changes of is not a release."
+            exit 1; }
+
+      - name: Fetch Godot and its export templates
+        run: |
+          set -eux
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q godot.zip && sudo mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q templates.tpz
+          mv templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Import the project
+        run: godot --headless --path . --import
+
+      - name: Build every download (the tests decide whether there is a release at all)
+        run: sh deploy/release.sh
+
+      - name: Cut the release notes out of CHANGELOG.md
+        run: |
+          awk -v v="${{ steps.v.outputs.version }}" '
+            $0 ~ "^## " v " " { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          printf '\n---\n\nBuilt from `%s` by the release workflow.\n' "$GITHUB_SHA" >> notes.md
+          cat notes.md
+
+      - uses: softprops/action-gh-release@v2
+        id: published
+        with:
+          name: Rope Racers ${{ steps.v.outputs.tag }}
+          tag_name: ${{ steps.v.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          body_path: notes.md
+          draft: ${{ inputs.draft || false }}
+          prerelease: ${{ inputs.prerelease || false }}
+          fail_on_unmatched_files: true
+          files: build/release/RopeRacers-*.zip
+
+      - name: Say what came out
+        run: |
+          {
+            echo "## Rope Racers ${{ steps.v.outputs.tag }}"
+            echo
+            echo "${{ steps.published.outputs.url }}"
+            echo
+            ls -1sh build/release/ | sed 's/^/    /'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,42 @@
+# What git should never carry (SPEC 72).
+#
+# The repository holds SOURCE: scripts, scenes, art, docs, tests. Everything a build produces is made
+# again from that source in a minute, and is published as a GitHub *release* instead -- see
+# .github/workflows/release.yml and deploy/release.sh. Binaries in git are dead weight: they change
+# completely on every export, they never merge, and they cost every clone forever.
+
+# Exports: the game, the server, the web build, the release zips and the screenshots the tools take.
+/build/
+
+# What deploy/package.sh copies out of build/ to make the Docker context.
+/deploy/server/
+/deploy/web/
+/deploy/deploy.zip
+
+# Godot's own caches: the import cache, the shader cache, the editor's folding state. All of it is
+# rebuilt by `godot --headless --import`.
+/.godot/
+*.translation
+
+# Editors and operating systems.
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# Local-only overrides (a machine's own export paths, signing keys, server addresses).
+override.cfg
+/deploy/*.local.sh
+*.pem
+*.keystore
+
+# Working notes: the design decisions, the spec's reasoning, reviews and briefs. They stay on the
+# developer's machine; the published repository carries the code, the art and the player-facing docs
+# (README, CHANGELOG, docs/MAPPING.md).
+/docs/*
+!/docs/MAPPING.md
+CLAUDE.md
+/.claude/
+*.stackdump

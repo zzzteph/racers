@@ -1,0 +1,89 @@
+name: server image
+
+# Builds the dedicated server image and pushes it to GitHub's registry (SPEC 66), so a server is one
+# command to deploy:
+#
+#   docker run -d --name rope-racers --restart unless-stopped \
+#     -p 127.0.0.1:8080:8080 ghcr.io/<owner>/rope-racers:latest
+#
+# The image contains the headless game server, the web build it serves, and the nginx in front of both --
+# exactly what deploy/Dockerfile describes. Nothing here needs a secret: GITHUB_TOKEN can push to the
+# repository's own package.
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+  IMAGE: ghcr.io/${{ github.repository_owner }}/rope-racers
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version
+        id: v
+        run: |
+          set -eu
+          version=$(sed -n 's/^config\/version="\(.*\)"$/\1/p' project.godot)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch Godot and its export templates
+        run: |
+          set -eux
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q godot.zip && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          chmod +x /usr/local/bin/godot
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q templates.tpz
+          mv templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Import the project
+        run: godot --headless --path . --import
+
+      - name: Run the tests
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/run_tests.gd | tee test.log
+          grep -q ", 0 failed" test.log
+
+      - name: Export the server and the web build
+        run: |
+          set -eux
+          mkdir -p build/server build/web
+          godot --headless --path . --export-release "Linux Server" build/server/RopeRacersServer.x86_64
+          godot --headless --path . --export-release "Web" build/web/index.html
+          sh deploy/package.sh
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: deploy
+          file: deploy/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.v.outputs.version }}
+            ${{ env.IMAGE }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}

@@ -34,9 +34,11 @@ override.cfg
 
 # Working notes: the design decisions, the spec's reasoning, reviews and briefs. They stay on the
 # developer's machine; the published repository carries the code, the art and the player-facing docs
-# (README, CHANGELOG, docs/MAPPING.md).
+# (README, CHANGELOG, docs/GUIDE.md, docs/MAPPING.md and the README's pictures in docs/media/).
 /docs/*
+!/docs/GUIDE.md
 !/docs/MAPPING.md
+!/docs/media/
 CLAUDE.md
 /.claude/
 *.stackdump

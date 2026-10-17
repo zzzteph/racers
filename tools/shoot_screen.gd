@@ -16,6 +16,10 @@ func _init() -> void:
 	# SPEC 115: the title menu opens its release notes the first time a build runs; a screenshot of the
 	# MENU wants them shut, so the tool says it has seen this build.
 	gs.settings["seen_version"] = Version.number()
+	# Pictures of the menus get published: no real player's name on them, and no FPS counter.
+	gs.settings["player_name"] = "You"
+	gs.settings["show_fps"] = false
+	gs.apply_settings()
 	root.add_child(load("res://scenes/%s.tscn" % which).instantiate())
 	for i in 30:
 		await process_frame
